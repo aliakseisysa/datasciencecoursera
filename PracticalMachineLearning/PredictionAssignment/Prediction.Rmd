@@ -1,0 +1,30 @@
+library(caret)
+set.seed(33833)
+df <- read.csv("pml-training.csv", na.strings=c("NA",""))
+inTrain <- createDataPartition(df$classe, p=0.75, list = FALSE)
+train <- df[inTrain,]
+test <- df[-inTrain,]
+trainRed <- train[, which(as.numeric(colSums(is.na(train)))==0)]
+trainRed <- trainRed[,-(1:7)]
+end <- ncol(trainRed)
+trainRed[,-end] <- data.frame(sapply(trainRed[,-end], as.numeric))
+nzv <- nearZeroVar(trainRed[, -end], saveMetrics=TRUE)
+trainRed <- trainRed[,!as.logical(nzv$nzv)]
+modelFit <- train(classe ~ ., data = trainRed, method="rf",importance=TRUE)
+varI <- varImp(modelFit)
+varI[[1]] <- varI[[1]][1:20,]
+plot(varI)
+topPred <- c("pitch_belt","roll_belt","yaw_belt","roll_arm","yaw_arm","gyros_belt_z",
+             "accel_belt_z","magnet_belt_z","magnet_belt_y","pitch_arm","gyros_belt_x",
+             "gyros_arm_x","magnet_belt_x","classe")
+topPredSorted <- sort(match(topPred, names(trainRed)))
+trainRed <- trainRed[,topPredSorted]
+modelFit <- train(classe ~ ., data = trainRed, method="rf",importance=TRUE)
+topPredSorted <- sort(match(topPred, names(test)))
+testRed <- test[,topPredSorted]
+accuracy <- confusionMatrix(testRed$classe, predict(modelFit, testRed))
+accuracy
+testFinal <- read.csv("pml-testing.csv")
+topPredSorted <- sort(match(topPred, names(testFinal)))
+testFinalRed <- testFinal[,topPredSorted]
+predict(modelFit, testFinalRed)
