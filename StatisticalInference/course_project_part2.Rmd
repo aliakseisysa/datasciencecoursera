@@ -1,0 +1,38 @@
+---
+title: 'Course Project: Part 2'
+author: "Aliaksei Sysa"
+date: "November 23, 2014"
+output: word_document
+fontsize: 11pt
+---
+
+Full code available here: https://github.com/ldamewood/coursera-statinference-008/blob/master/course_project_part2.Rmd
+
+```{r, echo=FALSE, message=FALSE, warnings=FALSE, message=FALSE}
+library(knitr)
+library(grid)
+library(gridExtra)
+library(ggplot2)
+ag1 <- aggregate( len ~ . , data = ToothGrowth, FUN = mean )
+ag2 <- aggregate( len ~ . , data = ToothGrowth, FUN = sd )
+agToothGrowth <- merge(ag1, ag2, by.x = c("supp", "dose"), by.y = c("supp", "dose"), all.y = F)
+names(agToothGrowth) <- c("supp", "dose", "len.mean", "len.sd")
+```
+
+Summary of means and standard deviations of each supplement and dose combination.
+
+```{r, echo=FALSE, message=FALSE, warnings=FALSE, message=FALSE}
+p <- qplot(dose, len, data=ToothGrowth, formula=y~x, color = supp)
+suppressWarnings(p <- p + geom_smooth())
+suppressWarnings(grid.arrange(tableGrob(agToothGrowth), p, ncol=2))
+```
+
+Hypothesis: OJ corresponds to greater tooth growth than VC across all dosages.
+Assumptions: Subjects are not identical in the two groups.
+
+```{r, echo = F}
+plot(len ~ supp, data = ToothGrowth, main = "Tooth growth by suppliment across all dosages.")
+t.test(len ~ supp, paired = F, val.equal = FALSE, data = ToothGrowth, alternative = "greater")
+```
+
+CI is entirely greater than 0, which suggests OJ corresponds to greater tooth growth.

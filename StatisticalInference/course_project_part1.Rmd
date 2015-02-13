@@ -1,0 +1,93 @@
+---
+title: 'Course Project: Part 1'
+author: "Aliaksei Sysa"
+date: "November 23, 2014"
+output: word_document
+fontsize: 11pt
+---
+Full source available here: https://github.com/ldamewood/coursera-statinference-008/blob/master/course_project_part1.Rmd
+
+The exponential distribution can be simulated in R with `rexp(n, lambda)` where `lambda` is the rate parameter. The mean of exponential distribution is `1/lambda` and the standard deviation is also also `1/lambda`. Set `lambda = 0.2` for all of the simulations. In this simulation, you will investigate the distribution of averages of 40 exponential(0.2)s. Note that you will need to do a thousand or so simulated averages of 40 exponentials.
+
+Illustrate via simulation and associated explanatory text the properties of the distribution of the mean of 40 exponential(0.2)s.  You should
+
+1. Show where the distribution is centered at and compare it to the theoretical center of the distribution.
+2. Show how variable it is and compare it to the theoretical variance of the distribution.
+3. Show that the distribution is approximately normal.
+4. Evaluate the coverage of the confidence interval for `1/lambda`: $\bar X\pm 1.96 \frac{s}{\sqrt{n}}$ (This only needs to be done for the specific value of `lambda`). 
+
+First, generate the data: 1000 trials of 40 exponentially distributed random variables. The mean and standard deviation of the set of 40 variables for each trial is stored in `dataset`.
+
+```{r}
+set.seed(100)
+lambda = 0.2
+n = 40
+trials = 1000
+data = matrix(rexp(n*trials, lambda), nrow = trials, ncol = n)
+dataset = data.frame(means = apply(data, 1, mean), sds = apply(data, 1, sd))
+```
+
+The theoretical mean is `1/lambda` = `r 1/lambda` while the mean over all trials is `r mean(dataset$means)`. The trial means are distributed following the CLT, so they should be normally distributed around 5 with a standard deviation of $5/\sqrt{40} =$ `r 5/sqrt(40)`. Experimentally, the standard deviation of the means is `r sd(dataset$means)`. The distribution is shown below, on the left, and it is approximately normally distributed because of the CLT. On the right, I examine the distribution of the standard deviation of the 1000 trials of the 40 exponential random variables. Theoretically, the standard deviation is `1/lambda` = 5 and because of the CLT, I expect the same normally distributed experiments around 5 with a standrad deviation of `r 5/sqrt(40)`. From the experimental data, the stndard deviations are centered around `r mean(dataset$sds)` with a standard deviation of `r sd(dataset$sds)`. The plot below demonstrates that they standard deviations are approximately normally distributed in agreement with the CLT. The standard deviation of the exponential distribution is much more variable than the mean.
+
+```{r, echo = F, error=FALSE, warning=FALSE}
+library(ggplot2)
+require(gridExtra)
+m = mean(dataset$means)
+s = sd(dataset$means)
+p1 <- ggplot(dataset, aes(x=means)) + xlim(2,8)
+p1 <- p1 + geom_histogram(aes(y=..density..), color="black", fill="white", binwidth = lambda)
+p1 <- p1 + stat_function(fun = dnorm, args=list(mean = m, sd = s), color="blue")
+p1 <- p1 + geom_vline(xintercept = c(m-s, m+s), color="magenta")
+p1 <- p1 + geom_vline(xintercept = c(m))
+m = mean(dataset$sds)
+s = sd(dataset$sds)
+p2 <- ggplot(dataset, aes(x=sds)) + xlim(2,8)
+p2 <- p2 + geom_histogram(aes(y=..density..), color="black", fill="white", binwidth = lambda)
+p2 <- p2 + stat_function(fun = dnorm, args=list(mean = m, sd = s), color="blue")
+p2 <- p2 + geom_vline(xintercept = c(m-s, m+s), color="magenta")
+p2 <- p2 + geom_vline(xintercept = c(m))
+#pushViewport(viewport(layout = grid.layout(1, 2,heights=unit(0.25, "npc"))))
+grid.arrange(p1, p2, ncol=2)
+```
+
+
+Next, I examine the convergence of the exponential distribution's mean by repeating 1000 trials of an increasing number of exponential random variables and plotting the confidence interval around the mean.
+
+```{r}
+dataset = data.frame()
+for (n in (1:20)*50) {
+  data = matrix(rexp(n*trials, lambda), nrow = trials, ncol = n)
+  means = apply(data, 1, mean)
+  sds = apply(data, 1, sd)
+  dataset = rbind(dataset, data.frame(means = means, sds = sds, size = n))
+}
+datamean = aggregate(. ~ size, dataset, mean)
+datasd =   aggregate(. ~ size, dataset, sd)
+dataBySize = cbind(datamean, datasd)
+names(dataBySize) <- c("size", "mean1", "mean2", "null", "sd1", "sd2")
+dataBySize$null <- NULL
+```
+
+The means are represented below. The points are the experimental means and the experimental CI in shown as black lines. The theoretical mean is shown in blue and the theoretical CI is shown in magenta.
+
+```{r, echo = F, error=FALSE, warning=FALSE}
+p <- qplot(size, mean1, data=dataBySize, formula=y~x, main = "Convergence and CI on the mean") + ylim(4.75,5.25)
+p <- p + geom_line(aes(x = size, y = 1/lambda), color = "blue")
+p <- p + geom_line(aes(x = size, y = 1/lambda + qnorm(.975) * 1/lambda / size), color = "magenta")
+p <- p + geom_line(aes(x = size, y = 1/lambda - qnorm(.975) * 1/lambda / size), color = "magenta")
+p <- p + geom_line(aes(x = size, y = mean1 + qnorm(.975) * sd1 / sqrt(size)))
+p <- p + geom_line(aes(x = size, y = mean1 - qnorm(.975) * sd1 / sqrt(size)))
+p
+```
+
+The standard deviations are represented below. The points are the experimental sd and the experimental CI in shown as black lines. The theoretical sd is shown in blue and the theoretical CI is shown in magenta.
+
+```{r, echo = F, error=FALSE, warning=FALSE}
+p <- qplot(size, mean2, data=dataBySize, formula=y~x, main = "Convergence and CI on the sd") + ylim(4.75,5.25)
+p <- p + geom_line(aes(x = size, y = 1/lambda), color = "blue")
+p <- p + geom_line(aes(x = size, y = 1/lambda + qnorm(.975) * 1/lambda / size), color = "magenta")
+p <- p + geom_line(aes(x = size, y = 1/lambda - qnorm(.975) * 1/lambda / size), color = "magenta")
+p <- p + geom_line(aes(x = size, y = mean1 + qnorm(.975) * sd2 / sqrt(size)))
+p <- p + geom_line(aes(x = size, y = mean1 - qnorm(.975) * sd2 / sqrt(size)))
+p
+```
